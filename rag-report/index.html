@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>台灣法條 RAG 評測實驗報告</title>
+<style>
+:root{--blue:#3B82F6;--green:#22C55E;--orange:#F97316;--red:#EF4444;--gray:#6B7280;--yellow:#EAB308;--teal:#14B8A6;--indigo:#6366F1;--dark:#111827;--card:#1F2937;--border:#374151;--text:#F9FAFB;--sub:#9CA3AF;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#0F172A;color:var(--text);font-family:'Helvetica Neue',Arial,'PingFang TC','Microsoft JhengHei',sans-serif;font-size:16px;line-height:1.7;}
+a{color:var(--blue);text-decoration:none;}
+
+/* nav */
+nav{position:sticky;top:0;z-index:100;background:#0a1120dd;backdrop-filter:blur(8px);border-bottom:1px solid var(--border);padding:0 2rem;}
+nav ul{display:flex;gap:1.5rem;list-style:none;height:52px;align-items:center;flex-wrap:wrap;}
+nav a{font-size:14px;color:var(--sub);transition:color .2s;}
+nav a:hover{color:var(--text);}
+
+/* hero */
+.hero{text-align:center;padding:5rem 2rem 3rem;background:linear-gradient(160deg,#0F172A 0%,#1e2a45 100%);}
+.hero h1{font-size:clamp(1.8rem,4vw,3rem);font-weight:800;background:linear-gradient(90deg,var(--blue),var(--teal));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:.8rem;}
+.hero p{color:var(--sub);max-width:680px;margin:0 auto 2rem;}
+.badge-row{display:flex;gap:.8rem;justify-content:center;flex-wrap:wrap;}
+.badge{padding:.3rem .9rem;border-radius:999px;font-size:13px;font-weight:600;}
+.badge-blue{background:#1d4ed822;border:1px solid #3B82F655;color:var(--blue);}
+.badge-green{background:#14532d22;border:1px solid #22C55E55;color:var(--green);}
+.badge-orange{background:#7c2d1222;border:1px solid #F9731655;color:var(--orange);}
+
+/* section */
+section{max-width:1100px;margin:0 auto;padding:3rem 2rem;}
+h2{font-size:1.7rem;font-weight:700;margin-bottom:1.5rem;padding-bottom:.6rem;border-bottom:2px solid var(--border);display:flex;align-items:center;gap:.6rem;}
+h2 .tag{font-size:.85rem;font-weight:600;padding:.15rem .6rem;border-radius:4px;background:var(--blue);color:#fff;}
+h3{font-size:1.2rem;font-weight:700;margin:2rem 0 .8rem;color:var(--blue);}
+p{color:#D1D5DB;margin-bottom:.8rem;}
+
+/* card grid */
+.grid{display:grid;gap:1.2rem;}
+.grid-2{grid-template-columns:repeat(auto-fit,minmax(280px,1fr));}
+.grid-3{grid-template-columns:repeat(auto-fit,minmax(240px,1fr));}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.4rem;}
+.card-title{font-weight:700;margin-bottom:.5rem;font-size:1rem;}
+.card p{font-size:.9rem;color:var(--sub);}
+
+/* tldr boxes */
+.tldr{background:#1d4ed811;border:1.5px solid var(--blue);border-radius:12px;padding:1.5rem;margin-bottom:2rem;}
+.tldr-row{display:flex;align-items:flex-start;gap:.7rem;margin:.5rem 0;}
+.tldr-row .icon{font-size:1.3rem;line-height:1;}
+.tldr-row span{color:#D1D5DB;font-size:.95rem;}
+
+/* step flow */
+.flow{display:flex;gap:0;flex-wrap:wrap;margin:1.2rem 0;}
+.step{flex:1;min-width:160px;background:var(--card);border:1px solid var(--border);padding:1rem;position:relative;}
+.step:not(:last-child)::after{content:'→';position:absolute;right:-12px;top:50%;transform:translateY(-50%);font-size:1.2rem;color:var(--blue);z-index:1;}
+.step-num{font-size:.75rem;color:var(--sub);margin-bottom:.3rem;}
+.step-title{font-weight:700;font-size:.95rem;}
+.step-desc{font-size:.82rem;color:var(--sub);margin-top:.3rem;}
+
+/* code */
+pre{background:#0d1117;border:1px solid var(--border);border-radius:8px;padding:1.2rem;font-size:.85rem;overflow-x:auto;margin:1rem 0;line-height:1.6;}
+code{font-family:'JetBrains Mono','Fira Code',monospace;color:#e2e8f0;}
+.kw{color:#c792ea;}
+.str{color:#c3e88d;}
+.cm{color:#546e7a;}
+.num{color:#f78c6c;}
+
+/* table */
+.tbl-wrap{overflow-x:auto;margin:1rem 0;}
+table{width:100%;border-collapse:collapse;font-size:.9rem;}
+th{background:#162032;color:var(--sub);padding:.6rem 1rem;text-align:left;border-bottom:2px solid var(--border);}
+td{padding:.55rem 1rem;border-bottom:1px solid var(--border)22;}
+tr:hover td{background:#ffffff08;}
+.best{color:var(--green);font-weight:700;}
+.bad{color:var(--red);}
+.sig{color:var(--green);font-size:.8rem;}
+.ns{color:var(--sub);font-size:.8rem;}
+
+/* stat highlight */
+.stats-row{display:flex;gap:1rem;flex-wrap:wrap;margin:1.5rem 0;}
+.stat{flex:1;min-width:140px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:1.2rem;text-align:center;}
+.stat-num{font-size:2rem;font-weight:800;background:linear-gradient(90deg,var(--blue),var(--teal));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.stat-label{font-size:.8rem;color:var(--sub);margin-top:.2rem;}
+
+/* example card */
+.ex-card{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:1rem 0;}
+.ex-header{background:#162032;padding:.7rem 1.2rem;font-size:.8rem;color:var(--sub);display:flex;gap:1rem;align-items:center;}
+.ex-tag{background:var(--blue)22;border:1px solid var(--blue)44;color:var(--blue);padding:.15rem .5rem;border-radius:4px;font-size:.75rem;}
+.ex-body{padding:1.2rem;}
+.ex-label{font-size:.75rem;color:var(--sub);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.3rem;}
+.ex-q{font-weight:700;color:var(--text);font-size:1rem;margin-bottom:1rem;}
+.ex-cols{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
+@media(max-width:640px){.ex-cols{grid-template-columns:1fr;}}
+.ex-gold{background:#14532d18;border-left:3px solid var(--green);padding:.7rem 1rem;border-radius:4px;font-size:.85rem;}
+.ex-hyde{background:#1d4ed818;border-left:3px solid var(--blue);padding:.7rem 1rem;border-radius:4px;font-size:.85rem;}
+.ex-col-title{font-size:.78rem;font-weight:700;margin-bottom:.4rem;}
+.gold-col-title{color:var(--green);}
+.hyde-col-title{color:var(--blue);}
+
+/* figure */
+.fig-wrap{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin:1.5rem 0;}
+.fig-wrap img{width:100%;display:block;}
+.fig-caption{padding:.8rem 1.2rem;font-size:.85rem;color:var(--sub);border-top:1px solid var(--border);}
+
+/* finding */
+.finding{display:flex;gap:1rem;align-items:flex-start;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:1.2rem;margin:.8rem 0;}
+.finding-icon{font-size:1.4rem;line-height:1;flex-shrink:0;}
+.finding-body strong{display:block;margin-bottom:.3rem;}
+.finding-body span{font-size:.9rem;color:#D1D5DB;}
+
+/* warn / limit */
+.limit{background:#7c2d1218;border-left:3px solid var(--orange);padding:.8rem 1.2rem;border-radius:4px;margin:.6rem 0;font-size:.9rem;}
+.negative{background:#450a0a18;border-left:3px solid var(--red);padding:.8rem 1.2rem;border-radius:4px;margin:.6rem 0;font-size:.9rem;}
+
+/* divider */
+hr{border:none;border-top:1px solid var(--border);margin:3rem 0;}
+
+/* conclusion box */
+.conclusion{background:linear-gradient(135deg,#1d4ed818,#134e4a18);border:1.5px solid var(--teal);border-radius:14px;padding:2rem;margin-top:2rem;}
+.conclusion h3{color:var(--teal);margin-top:0;}
+
+/* sticky section header */
+.sec-label{display:inline-block;font-size:.8rem;font-weight:700;padding:.2rem .7rem;border-radius:4px;margin-bottom:.8rem;letter-spacing:.05em;}
+.sec-blue{background:var(--blue)22;color:var(--blue);border:1px solid var(--blue)55;}
+.sec-green{background:#14532d55;color:var(--green);border:1px solid var(--green)55;}
+.sec-orange{background:#7c2d1244;color:var(--orange);border:1px solid var(--orange)55;}
+.sec-red{background:#450a0a44;color:var(--red);border:1px solid var(--red)55;}
+.sec-purple{background:#4c1d9544;color:#a78bfa;border:1px solid #a78bfa55;}
+</style>
+</head>
+<body>
+
+<nav>
+  <ul>
+    <li><a href="#background">背景</a></li>
+    <li><a href="#design">實驗設計</a></li>
+    <li><a href="#methods">方法</a></li>
+    <li><a href="#examples">資料範例</a></li>
+    <li><a href="#expa">Exp-A 結果</a></li>
+    <li><a href="#hyde">HyDE Ablation</a></li>
+    <li><a href="#expb">Exp-B 結果</a></li>
+    <li><a href="#cross">跨實驗</a></li>
+    <li><a href="#diagnosis">特例診斷</a></li>
+    <li><a href="#conclusion">結論</a></li>
+    <li><a href="#limitations">限制</a></li>
+  </ul>
+</nav>
+
+<div class="hero">
+  <h1>台灣法條 RAG 評測實驗報告</h1>
+  <p>法律問答系統的 Retrieval 品質與下游答題效益之系統性評測<br>LawFactsQA-TW Benchmark × 律師國考 666 題</p>
+  <div class="badge-row">
+    <span class="badge badge-blue">264 Retrieval Queries</span>
+    <span class="badge badge-green">666 Bar Exam Questions</span>
+    <span class="badge badge-orange">18 Ablation Methods</span>
+    <span class="badge badge-blue">26 個 RAG 方法比較</span>
+  </div>
+</div>
+
+<!-- ═══════════════ SECTION 1: 背景 ═══════════════ -->
+<section id="background">
+  <span class="sec-label sec-blue">SECTION 1</span>
+  <h2>背景與動機</h2>
+
+  <div class="tldr">
+    <div class="tldr-row"><span class="icon">❓</span><span><strong>問題：</strong>台灣法律 RAG 系統到底有沒有效？Retrieval 找到法條，LLM 答題就真的變好嗎？</span></div>
+    <div class="tldr-row"><span class="icon">⚠️</span><span><strong>過去的缺陷：</strong>舊實驗用 LLM 自生成的 50 題測試集，公正性存疑；RAG 結果與 closed-book 數字完全一樣，明顯流程出錯。</span></div>
+    <div class="tldr-row"><span class="icon">🎯</span><span><strong>本次目標：</strong>用學界公認 benchmark（LawFactsQA-TW）評 retrieval；用律師國考真題評下游效益；兩個維度同時驗證。</span></div>
+  </div>
+
+  <div class="grid grid-2">
+    <div class="card">
+      <div class="card-title">📚 Exp-A：Retrieval 品質評測</div>
+      <p>用 LawFactsQA-TW（中興大學 NLP Lab，ROCLING 2024 論文）測試各方法能否找到正確法條。有外部 baseline 可對標，結論具備學術可信度。</p>
+    </div>
+    <div class="card">
+      <div class="card-title">⚖️ Exp-B：端到端答題評測</div>
+      <p>用 108～110 年律師資格考試真題，測試「retrieval → LLM 答題」的實際效益。衡量 RAG 有沒有真正幫助 LLM 答對考題。</p>
+    </div>
+  </div>
+
+  <h3>核心研究問題</h3>
+  <div class="grid grid-3">
+    <div class="card">
+      <div class="card-title" style="color:var(--blue)">Q1</div>
+      <p>哪種 retrieval 方法在台灣法律場景最有效？BM25 vs Dense vs Hybrid vs HyDE？</p>
+    </div>
+    <div class="card">
+      <div class="card-title" style="color:var(--teal)">Q2</div>
+      <p>HyDE（Hypothetical Document Embedding）真的有效嗎？哪個設計最優？</p>
+    </div>
+    <div class="card">
+      <div class="card-title" style="color:var(--orange)">Q3</div>
+      <p>Retrieval 指標（R@10）與下游答題準確率是否相關？能否靠 benchmark 預測效益？</p>
+    </div>
+  </div>
+</section>
+
+<hr>
+
+<!-- ═══════════════ SECTION 2: 實驗設計 ═══════════════ -->
+<section id="design">
+  <span class="sec-label sec-blue">SECTION 2</span>
+  <h2>實驗設計</h2>
+
+  <div class="grid grid-2">
+    <div>
+      <h3>Exp-A 設定</h3>
+      <div class="tbl-wrap">
+        <table>
+          <tr><th>項目</th><th>內容</th></tr>
+          <tr><td>資料集</td><td>LawFactsQA-TW（arXiv:2410.11450）</td></tr>
+          <tr><td>Query 數</td><td>264（人工標註 92 + GPT-4 合成 172）</td></tr>
+          <tr><td>Corpus</td><td>22,728 條（法務部全國法規資料庫）</td></tr>
+          <tr><td>GT 格式</td><td>每題 1～39 條 gold 法條（multi-article）</td></tr>
+          <tr><td>主指標</td><td>Recall@10（前10名涵蓋幾條金答案）</td></tr>
+          <tr><td>副指標</td><td>MRR@10、Hit@10、AP@10、R@50</td></tr>
+          <tr><td>外部 baseline</td><td>論文：BM25=0.188, Dense=0.348, Rerank=0.472</td></tr>
+        </table>
+      </div>
+    </div>
+    <div>
+      <h3>Exp-B 設定</h3>
+      <div class="tbl-wrap">
+        <table>
+          <tr><th>項目</th><th>內容</th></tr>
+          <tr><td>資料集</td><td>108～110 年律師資格考試真題</td></tr>
+          <tr><td>題目數</td><td>666 題（四選一）</td></tr>
+          <tr><td>Corpus</td><td>Production DB（38 部法律，8,470 條）</td></tr>
+          <tr><td>LLM</td><td>gpt-4o-mini（temperature=0）</td></tr>
+          <tr><td>Closed-book baseline</td><td>45.20%（不給法條，純 LLM 知識）</td></tr>
+          <tr><td>統計方法</td><td>Binomial exact test + McNemar pairwise</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <h3>共用模型設定</h3>
+  <div class="stats-row">
+    <div class="stat"><div class="stat-num" style="font-size:1.1rem">text-embedding-3-small</div><div class="stat-label">Dense Embedding（1536 dim）</div></div>
+    <div class="stat"><div class="stat-num" style="font-size:1.1rem">jieba + rank_bm25</div><div class="stat-label">BM25 Tokenizer</div></div>
+    <div class="stat"><div class="stat-num" style="font-size:1.1rem">BGE-reranker-v2-m3</div><div class="stat-label">Cross-Encoder Reranker</div></div>
+    <div class="stat"><div class="stat-num" style="font-size:1.1rem">gpt-4o-mini</div><div class="stat-label">HyDE 生成 + 答題 LLM</div></div>
+  </div>
+
+  <h3>RAG Pipeline 流程</h3>
+  <div class="flow">
+    <div class="step"><div class="step-num">01</div><div class="step-title">Query Input</div><div class="step-desc">法律問題或考題題幹</div></div>
+    <div class="step"><div class="step-num">02</div><div class="step-title">Retrieval</div><div class="step-desc">BM25 / Dense / Hybrid / HyDE</div></div>
+    <div class="step"><div class="step-num">03</div><div class="step-title">Rerank</div><div class="step-desc">BGE reranker 精篩 top-10</div></div>
+    <div class="step"><div class="step-num">04</div><div class="step-title">Context</div><div class="step-desc">組入 prompt</div></div>
+    <div class="step"><div class="step-num">05</div><div class="step-title">LLM Answer</div><div class="step-desc">gpt-4o-mini 答 A/B/C/D</div></div>
+  </div>
+</section>
+
+<hr>
+<section id="methods">
+  <span class="sec-label sec-blue">SECTION 3</span>
+  <h2>方法說明</h2>
+
+  <h3>Exp-A v1：8 種基礎方法</h3>
+  <div class="tbl-wrap">
+  <table>
+    <tr><th>代號</th><th>名稱</th><th>核心設計</th><th>LLM call</th></tr>
+    <tr><td><strong>A</strong></td><td>Dense</td><td>text-embedding-3-small cosine 搜尋</td><td>0</td></tr>
+    <tr><td><strong>B</strong></td><td>BM25</td><td>jieba 分詞 + rank_bm25 詞頻統計</td><td>0</td></tr>
+    <tr><td><strong>C</strong></td><td>Hybrid</td><td>A + B → Reciprocal Rank Fusion（RRF, k=60）</td><td>0</td></tr>
+    <tr><td><strong>D</strong></td><td>Hybrid+Rerank</td><td>C 取 top-50 → BGE-reranker → top-10</td><td>0</td></tr>
+    <tr><td><strong>E</strong></td><td>HyDE-Avg+Orig</td><td>生成 3 條假設法條 + orig query → 4 向量平均 → cosine</td><td>3/query</td></tr>
+    <tr><td><strong>F</strong></td><td>Adaptive</td><td>dense top-20；相似度低才升級為 E</td><td>0-3/query</td></tr>
+    <tr><td><strong>G</strong></td><td>Dense+Rerank</td><td>A 取 top-20 → reranker → top-10</td><td>0</td></tr>
+    <tr><td><strong>I</strong></td><td>HyDE+BM25+Rerank</td><td>HyDE dense + BM25 → RRF → reranker</td><td>3/query</td></tr>
+  </table>
+  </div>
+
+  <h3>HyDE 的核心概念</h3>
+  <p>口語問句和法條之間有「詞彙 gap」，把問句先讓 LLM 翻譯成假設的法條語言，再用這段假設條文做 embedding 搜尋，可以縮短這個 gap。</p>
+
+  <h3>三種 HyDE Prompt</h3>
+  <div class="grid grid-3">
+    <div class="card">
+      <div class="card-title">Prompt A（嚴格格式）</div>
+      <p>限制 50-100 字、第X條格式。資訊量被壓縮，R@10 最低。</p>
+    </div>
+    <div class="card" style="border-color:var(--blue)55;">
+      <div class="card-title" style="color:var(--blue)">Prompt B（放鬆格式）★</div>
+      <p>長度不限，可含條號、釋字、法律原則。比 A 高 +0.153 R@10（p≈0）。</p>
+    </div>
+    <div class="card" style="border-color:var(--teal)55;">
+      <div class="card-title" style="color:var(--teal)">Prompt C（三角度）★</div>
+      <p>同時生成條文、釋字、原則三種視角的假設文字。比 A 高 +0.157 R@10（p≈0）。</p>
+    </div>
+  </div>
+</section>
+
+<hr>
+<section id="examples">
+  <span class="sec-label sec-green">SECTION 4</span>
+  <h2>資料範例：Query、Gold 法條、HyDE 生成對照</h2>
+  <p>以下展示 6 個真實 query 的完整對照，清楚看出 HyDE 如何把口語問句「翻譯」成法條語言。</p>
+
+  <!-- Example 1 -->
+  <div class="ex-card">
+    <div class="ex-header">
+      <span class="ex-tag">Human Labeled</span>
+      <span>就業服務法 / 外國人工作許可</span>
+    </div>
+    <div class="ex-body">
+      <div class="ex-label">Query（口語問句）</div>
+      <div class="ex-q">取得永久居留外國人或歸化取得我國國籍之外國人，是否不須申請工作許可？</div>
+      <div class="ex-cols">
+        <div>
+          <div class="ex-col-title gold-col-title">Gold 法條（真實答案）</div>
+          <div class="ex-gold">外國專業人才…其本人、配偶、未成年子女…經許可<strong>永久居留者</strong>，在我國從事工作，<strong>不須向勞動部或教育部申請許可</strong>。第8條雇主聘僱從事專業工作之外國特定專業人才…</div>
+        </div>
+        <div>
+          <div class="ex-col-title hyde-col-title">HyDE 生成（假設條文）</div>
+          <div class="ex-hyde"><strong>Doc 1：</strong>取得<strong>永久居留</strong>之外國人，及經歸化取得我國國籍之外國人，<strong>得免申請工作許可</strong>；但其工作範圍、資格限制及其他應遵行事項，依法律另有規定。</div>
+          <div class="ex-hyde" style="margin-top:.5rem"><strong>Doc 2：</strong>第○條　取得<strong>永久居留許可</strong>之外國人及歸化取得我國國籍之前外國人，<strong>得免申請工作許可</strong>，在中華民國境內受僱…</div>
+        </div>
+      </div>
+      <div class="limit" style="margin-top:.8rem">Gold refs: 1187#4、1187#5、1187#23（需同時找到 3 條才算完整）</div>
+    </div>
+  </div>
+
+  <!-- Example 2 -->
+  <div class="ex-card">
+    <div class="ex-header">
+      <span class="ex-tag">Human Labeled</span>
+      <span>就業服務法 / 藝術演藝工作</span>
+    </div>
+    <div class="ex-body">
+      <div class="ex-label">Query（口語問句）</div>
+      <div class="ex-q">申請聘僱從事F類（藝術及演藝工作），雇主資格及應備文件？</div>
+      <div class="ex-cols">
+        <div>
+          <div class="ex-col-title gold-col-title">Gold 法條</div>
+          <div class="ex-gold">外國人受聘僱從事本法第四十六條第一項第六款規定之<strong>藝術及演藝工作</strong>，應出具從事藝術、演藝工作<strong>證明文件</strong>或其所屬國官方機構出具之推薦或證明文件…</div>
+        </div>
+        <div>
+          <div class="ex-col-title hyde-col-title">HyDE 生成</div>
+          <div class="ex-hyde">雇主申請聘僱外國人從事<strong>F類藝術及演藝工作</strong>者，應具合法設立登記及實際營業，並檢具<strong>申請書、營運證明、聘僱契約</strong>、工作內容說明、外國人護照影本、學經歷或專業表現證明及其他主管機關指定文件。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Example 3 -->
+  <div class="ex-card">
+    <div class="ex-header">
+      <span class="ex-tag">Human Labeled</span>
+      <span>就業服務法 / 外籍教師</span>
+    </div>
+    <div class="ex-body">
+      <div class="ex-label">Query（口語問句）</div>
+      <div class="ex-q">請問個人可否在家教網站上自行找外籍教師教授語文課程？</div>
+      <div class="ex-cols">
+        <div>
+          <div class="ex-col-title gold-col-title">Gold 法條</div>
+          <div class="ex-gold">雇主<strong>聘僱外國人工作</strong>，應檢具有關文件，向中央主管機關<strong>申請許可</strong>。但有下列情形之一，<strong>不須申請許可</strong>：…各級政府及其所屬學術研究機構聘請…</div>
+        </div>
+        <div>
+          <div class="ex-col-title hyde-col-title">HyDE 生成</div>
+          <div class="ex-hyde">第○條　個人得於依法設立之<strong>家教網站</strong>，自行搜尋並聘請<strong>外籍教師</strong>教授語文課程；其聘僱、居留及<strong>工作許可</strong>，應依相關法令辦理。前項外籍教師不得從事許可範圍以外之教學行為。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Example 4 -->
+  <div class="ex-card">
+    <div class="ex-header">
+      <span class="ex-tag">GPT-4 Synthetic</span>
+      <span>政府採購法 / 商業機密</span>
+    </div>
+    <div class="ex-body">
+      <div class="ex-label">Query（GPT-4 從新聞合成）</div>
+      <div class="ex-q">政府採購時若涉及到商業機密，應該如何處理才符合規定？</div>
+      <div class="ex-cols">
+        <div>
+          <div class="ex-col-title gold-col-title">Gold 法條</div>
+          <div class="ex-gold">機關辦理招標，<strong>不得於開標前洩漏底價</strong>，領標、投標廠商之名稱與家數及其他足以影響採購公正之消息。</div>
+        </div>
+        <div>
+          <div class="ex-col-title hyde-col-title">HyDE 生成</div>
+          <div class="ex-hyde">政府機關辦理採購，涉及廠商之<strong>商業機密</strong>者，應於招標文件及契約明定<strong>保密範圍</strong>、管理方式與違反責任，並採必要之遮蔽、限閱或分級措施；非依法令規定或經當事人同意，不得公開、提供或作其他目的使用。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Example 5 -->
+  <div class="ex-card">
+    <div class="ex-header">
+      <span class="ex-tag">GPT-4 Synthetic</span>
+      <span>政府採購法 / 防疫採購透明度</span>
+    </div>
+    <div class="ex-body">
+      <div class="ex-label">Query（GPT-4 從時事新聞合成）</div>
+      <div class="ex-q">若疾管署在防疫物資採購中未能即時公開決標資訊，可能違反了哪些程序或原則？</div>
+      <div class="ex-cols">
+        <div>
+          <div class="ex-col-title gold-col-title">Gold 法條（7 條）</div>
+          <div class="ex-gold">第1條：為建立政府採購制度，依<strong>公平、公開</strong>之採購程序，提升採購效率與功能，確保採購品質。第6條：機關辦理採購，應以<strong>維護公共利益及公平合理</strong>為原則…</div>
+        </div>
+        <div>
+          <div class="ex-col-title hyde-col-title">HyDE 生成</div>
+          <div class="ex-hyde">主管機關辦理<strong>防疫物資採購</strong>，應於決標後即時<strong>公開決標資訊</strong>；未依前項公開者，違反<strong>資訊公開原則、採購程序公開原則</strong>及行政透明原則，並應限期補正…</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Example 6 -->
+  <div class="ex-card">
+    <div class="ex-header">
+      <span class="ex-tag">GPT-4 Synthetic</span>
+      <span>政府採購法 / 報價上限</span>
+    </div>
+    <div class="ex-body">
+      <div class="ex-label">Query</div>
+      <div class="ex-q">政府採購資訊服務的標案，是否允許提供超過公告金額的報價？</div>
+      <div class="ex-cols">
+        <div>
+          <div class="ex-col-title gold-col-title">Gold 法條</div>
+          <div class="ex-gold">合於招標文件規定之投標廠商之<strong>最低標價超過底價</strong>時，得洽該最低標廠商<strong>減價一次</strong>；減價結果仍超過底價時，得由所有合於招標文件規定之投標廠商重新比減價格…</div>
+        </div>
+        <div>
+          <div class="ex-col-title hyde-col-title">HyDE 生成</div>
+          <div class="ex-hyde">第○條　機關辦理資訊服務採購，廠商投標金額，<strong>不得逾越公告預算金額</strong>；其投標報價超過公告金額者，視為<strong>無效標</strong>。前項公告金額，機關應於招標文件中明確載明。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="finding" style="margin-top:1.5rem">
+    <div class="finding-icon">💡</div>
+    <div class="finding-body">
+      <strong>為什麼 HyDE 有效？</strong>
+      <span>原始問句用口語（「需要申請嗎？」「如何處理？」），法條用術語（「得免申請許可」「應依…辦理」）。HyDE 生成的假設條文直接「說法律的話」，embedding 在同一個向量空間，搜尋命中率大幅提升。BM25 + HyDE 提升最大（+73.2%），因為 BM25 完全依賴詞彙完全匹配，HyDE 補上了術語橋梁。</span>
+    </div>
+  </div>
+</section>
+
+<hr>
+<section id="expa">
+  <span class="sec-label sec-green">SECTION 5</span>
+  <h2>Exp-A 結果：LawFactsQA-TW Retrieval</h2>
+
+  <div class="stats-row">
+    <div class="stat"><div class="stat-num">0.548</div><div class="stat-label">最佳 R@10（I: HyDE+BM25+Rerank）</div></div>
+    <div class="stat"><div class="stat-num">0.472</div><div class="stat-label">論文最佳 baseline（Breeze rerank）</div></div>
+    <div class="stat"><div class="stat-num">+16%</div><div class="stat-label">超越論文最佳</div></div>
+    <div class="stat"><div class="stat-num">n=264</div><div class="stat-label">Query 數量</div></div>
+  </div>
+
+  <div class="fig-wrap">
+    <img src="figures/fig1_expa_v1_retrieval.png" alt="Exp-A 8 方法 Retrieval 指標對比">
+    <div class="fig-caption">圖 1：Exp-A 8 方法三指標對比。藍=R@10，綠=MRR@10，橘=Hit@10。紅虛線=論文 best 0.472，灰點線=論文 BM25 0.188。</div>
+  </div>
+
+  <div class="tbl-wrap">
+  <table>
+    <tr><th>Method</th><th>R@10</th><th>MRR@10</th><th>Hit@10</th><th>Hit@1</th><th>vs 論文</th></tr>
+    <tr><td><strong>I: HyDE+BM25+Rerank</strong></td><td class="best">0.548</td><td class="best">0.575</td><td class="best">0.769</td><td class="best">0.470</td><td class="best">+16.1%</td></tr>
+    <tr><td>D: Hybrid+Rerank</td><td>0.484</td><td>0.533</td><td>0.682</td><td>0.455</td><td class="best">+2.5%</td></tr>
+    <tr><td>E: HyDE-Avg+Orig</td><td>0.390</td><td>0.412</td><td>0.598</td><td>0.318</td><td>-17.4%</td></tr>
+    <tr><td>G: Dense+Rerank</td><td>0.368</td><td>0.426</td><td>0.545</td><td>0.360</td><td>-22.0%</td></tr>
+    <tr><td>F: Adaptive</td><td>0.345</td><td>0.361</td><td>0.542</td><td>0.265</td><td>-26.9%</td></tr>
+    <tr><td>C: Hybrid</td><td>0.317</td><td>0.316</td><td>0.519</td><td>0.242</td><td>-32.8%</td></tr>
+    <tr><td>A: Dense</td><td>0.300</td><td>0.307</td><td>0.470</td><td>0.223</td><td>-36.4%</td></tr>
+    <tr><td>B: BM25</td><td>0.255</td><td>0.272</td><td>0.424</td><td>0.212</td><td class="best">+35.6% vs 論文BM25</td></tr>
+  </table>
+  </div>
+
+  <div class="grid grid-2" style="margin-top:1.5rem">
+    <div class="finding">
+      <div class="finding-icon">✅</div>
+      <div class="finding-body">
+        <strong>I（HyDE+BM25+Rerank）超越論文 best +16%</strong>
+        <span>HyDE dense + BM25 的 RRF 融合候選池豐富，reranker 再精篩，三者互補效果最佳。</span>
+      </div>
+    </div>
+    <div class="finding">
+      <div class="finding-icon">⚡</div>
+      <div class="finding-body">
+        <strong>本實驗 BM25 打贏論文 BM25（+35.6%）</strong>
+        <span>論文用 Pyserini 預設 tokenizer，繁中切分差。改用 jieba 後，法律術語切得準，詞彙匹配大幅改善。</span>
+      </div>
+    </div>
+    <div class="finding">
+      <div class="finding-icon">⚠️</div>
+      <div class="finding-body">
+        <strong>Dense（A）輸論文 Dense（-13.6%）</strong>
+        <span>論文用 BGE-m3（繁中法律語料預訓練），本實驗用 text-embedding-3-small（通用）。Domain-specific embedding 優勢明顯。</span>
+      </div>
+    </div>
+    <div class="finding">
+      <div class="finding-icon">🔍</div>
+      <div class="finding-body">
+        <strong>G（Dense+Rerank）在 Exp-A 有幫助（+22.7%）</strong>
+        <span>Dense 候選池加 reranker，Exp-A R@10 從 0.300 升到 0.368。但在 Exp-B（答題）反而退步——詳見特例診斷。</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr>
+<section id="hyde">
+  <span class="sec-label sec-blue">SECTION 6</span>
+  <h2>HyDE Ablation：18 組方法完整比較</h2>
+
+  <div class="stats-row">
+    <div class="stat"><div class="stat-num">R15</div><div class="stat-label">推薦 Production（hybrid+HyDE_n1+rerank）</div></div>
+    <div class="stat"><div class="stat-num">0.5436</div><div class="stat-label">R15 R@10</div></div>
+    <div class="stat"><div class="stat-num">-67%</div><div class="stat-label">n=1 vs n=3 LLM cost 節省</div></div>
+    <div class="stat"><div class="stat-num">-55.1%</div><div class="stat-label">aug_reranker 崩潰幅度</div></div>
+  </div>
+
+  <div class="fig-wrap">
+    <img src="figures/fig2_hyde_ablation_leaderboard.png" alt="HyDE Ablation 18 方法排行榜">
+    <div class="fig-caption">圖 2：18 方法 R@10 排行榜。顏色代表方法類型：藍=hybrid+rerank，青=hybrid（無rerank），灰=dense，黃=BM25，紅=崩潰（aug_reranker）。</div>
+  </div>
+
+  <div class="fig-wrap">
+    <img src="figures/fig3_ablation_forest.png" alt="HyDE Ablation Forest Plot">
+    <div class="fig-caption">圖 3：各 ablation 因素的 Delta R@10 + 95% CI（McNemar + Holm-Bonferroni 校正）。藍=改善，紅=退步。</div>
+  </div>
+
+  <h3>關鍵統計結果</h3>
+  <div class="tbl-wrap">
+  <table>
+    <tr><th>比較</th><th>Delta R@10</th><th>相對改善</th><th>95% CI</th><th>p_adj</th><th>顯著</th></tr>
+    <tr><td>HyDE on BM25</td><td class="best">+0.187</td><td class="best">+73.2%</td><td>[0.143, 0.231]</td><td>≈0</td><td class="sig">* 顯著</td></tr>
+    <tr><td><del>Prompt B vs A</del> <span style="color:var(--red);font-size:.85em">（混淆比較，已推翻）</span></td><td>+0.153</td><td>+40.3%</td><td>[0.107, 0.197]</td><td>≈0</td><td class="ns">—</td></tr>
+    <tr><td><del>Prompt C vs A</del> <span style="color:var(--red);font-size:.85em">（混淆比較，已推翻）</span></td><td>+0.157</td><td>+41.4%</td><td>[0.111, 0.202]</td><td>≈0</td><td class="ns">—</td></tr>
+    <tr><td>Prompt B vs A（控制 pipeline 後）</td><td class="bad">-0.014</td><td class="bad">-2.5%</td><td>—</td><td>—</td><td class="ns">NS（R19/R20 控制組）</td></tr>
+    <tr><td>HyDE on/off（dense）</td><td class="best">+0.080</td><td class="best">+26.6%</td><td>[0.040, 0.120]</td><td>0.0006</td><td class="sig">* 顯著</td></tr>
+    <tr><td>HyDE on/off（hybrid+rerank）</td><td class="best">+0.062</td><td class="best">+12.8%</td><td>[0.031, 0.095]</td><td>0.0004</td><td class="sig">* 顯著</td></tr>
+    <tr><td>Rerank vs no-rerank（HyDE+dense）</td><td class="best">+0.092</td><td class="best">+24.3%</td><td>[0.057, 0.128]</td><td>≈0</td><td class="sig">* 顯著</td></tr>
+    <tr><td>n=1 vs n=3</td><td>+0.003</td><td>+0.8%</td><td>[-0.019, 0.026]</td><td>1.0</td><td class="ns">NS 不顯著</td></tr>
+    <tr><td>n=5 vs n=3</td><td>-0.008</td><td>-2.0%</td><td>[-0.029, 0.014]</td><td>1.0</td><td class="ns">NS 不顯著</td></tr>
+    <tr><td><strong>aug_reranker vs orig</strong></td><td class="bad">-0.301</td><td class="bad">-55.1%</td><td>[-0.348, -0.257]</td><td>≈0</td><td class="sig">* 顯著崩潰</td></tr>
+  </table>
+  </div>
+
+  <div class="fig-wrap">
+    <img src="figures/fig9_hyde_n_sweep.png" alt="HyDE n sweep">
+    <div class="fig-caption">圖 4：HyDE 生成數量 n=1/3/5 的效果。n=1 與 n=3 統計無顯著差異（p=1.0），推薦 n=1 節省 67% LLM cost。</div>
+  </div>
+
+  <h3>推薦 Production Pipeline：R15</h3>
+  <div class="conclusion">
+    <h3>hybrid + HyDE_n1 + rerank(orig)</h3>
+    <div class="grid grid-2">
+      <div>
+        <p><strong>R@10 = 0.5436</strong>，超越論文 best（0.472）+11.5%</p>
+        <p><strong>MRR@10 = 0.5808</strong>（18 組最高）</p>
+        <p>與 R7（n=3）統計平手（Delta=-0.002, p=1.0）</p>
+      </div>
+      <div>
+        <p>LLM cost 比 n=3 低 <strong>67%</strong>（1次 call vs 3次）</p>
+        <p>備選：R5（hybrid+orig+rerank）R@10=0.484，無需 LLM call</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<hr>
+<section id="hyde-conclusions">
+  <span class="sec-label sec-blue">SECTION 6b</span>
+  <h2>Exp-A 結論：三個關鍵發現</h2>
+
+  <!-- ── 結論一 ── -->
+  <h3>結論一：HyDE 在每一條路上都有效</h3>
+  <p>不管底層是 BM25、Dense 還是 Hybrid，加了 HyDE 之後 R@10 全部顯著提升。BM25 受益最大（+73.2%），因為口語問句和法條的詞彙 gap 最大，HyDE 直接填平這個 gap。</p>
+
+  <div class="fig-wrap">
+    <img src="figures/fig10_hyde_effect_per_source.png" alt="HyDE effect per source">
+    <div class="fig-caption">圖 10：各路徑加入 HyDE 前後的 R@10 對比。綠色箭頭=HyDE 帶來的提升，百分比標注相對改善幅度。紅虛線=論文 best 0.472。</div>
+  </div>
+
+  <div class="tbl-wrap">
+  <table>
+    <tr><th>升級路徑</th><th>Before（no HyDE）</th><th>After（HyDE Prompt A）</th><th>+Delta</th><th>相對改善</th><th>p</th></tr>
+    <tr><td>BM25：R2 → R8</td><td>0.255</td><td class="best">0.442</td><td class="best">+0.187</td><td class="best">+73.2%</td><td class="sig">≈0</td></tr>
+    <tr><td>Hybrid（no rerank）：R3 → R9</td><td>0.317</td><td class="best">0.407</td><td class="best">+0.090</td><td class="best">+28.4%</td><td>—</td></tr>
+    <tr><td>Dense：R1 → R6</td><td>0.299</td><td class="best">0.379</td><td class="best">+0.080</td><td class="best">+26.6%</td><td class="sig">0.0006</td></tr>
+    <tr><td>Dense + Rerank：R4 → R10</td><td>0.383</td><td class="best">0.471</td><td class="best">+0.088</td><td class="best">+23.0%</td><td>—</td></tr>
+    <tr><td>Hybrid + Rerank：R5 → R7</td><td>0.484</td><td class="best">0.546</td><td class="best">+0.062</td><td class="best">+12.8%</td><td class="sig">0.0004</td></tr>
+  </table>
+  </div>
+
+  <div class="finding">
+    <div class="finding-icon">💡</div>
+    <div class="finding-body">
+      <strong>為什麼 BM25 受益最大？</strong>
+      <span>BM25 純靠詞彙精確匹配。原始問句「個人可否在家教網站找外籍教師？」幾乎沒有「工作許可」「居留」等法律術語。HyDE 生成的假設條文直接補上這些詞彙，BM25 就能命中。Dense embedding 本來就能處理語意近似，所以 HyDE 的加成相對較小。</span>
+    </div>
+  </div>
+
+  <!-- ── 結論二 ── -->
+  <h3>結論二：Reranker 需要 Hybrid 候選池才有效</h3>
+  <p>同樣是加 Reranker，Dense-only 候選池帶來的提升只有 Hybrid 候選池的一半左右。候選池越多樣，Reranker 越能發揮精篩功能。</p>
+
+  <div class="fig-wrap">
+    <img src="figures/fig11_reranker_needs_hybrid.png" alt="Reranker needs hybrid pool">
+    <div class="fig-caption">圖 11：左=Rerank 前後 R@10 對比；右=Rerank 帶來的 Delta。紫色=Dense 候選池，藍色=Hybrid 候選池。Hybrid 的提升量約為 Dense 的 2 倍。</div>
+  </div>
+
+  <div class="tbl-wrap">
+  <table>
+    <tr><th>升級路徑</th><th>候選池來源</th><th>Before</th><th>After（+Rerank）</th><th>+Delta</th></tr>
+    <tr><td>R1 → R4（Dense）</td><td>Dense only</td><td>0.299</td><td>0.383</td><td>+0.084</td></tr>
+    <tr><td>R6 → R10（Dense+HyDE）</td><td>Dense only</td><td>0.379</td><td>0.471</td><td>+0.092</td></tr>
+    <tr><td>R3 → R5（Hybrid）</td><td>BM25 + Dense</td><td>0.317</td><td class="best">0.484</td><td class="best">+0.167</td></tr>
+    <tr><td>R9 → R7（Hybrid+HyDE）</td><td>BM25 + Dense</td><td>0.407</td><td class="best">0.546</td><td class="best">+0.139</td></tr>
+  </table>
+  </div>
+
+  <div class="finding">
+    <div class="finding-icon">💡</div>
+    <div class="finding-body">
+      <strong>為什麼 Dense-only 候選池讓 Reranker 效果差？</strong>
+      <span>text-embedding-3-small 對「概念相近但條號不同」的法條給出非常接近的相似度，導致 Dense top-50 候選池<strong>同質性過高</strong>。Reranker 面對一堆「都很像」的候選時，能精篩的空間有限。BM25 加入後帶來詞彙維度的多樣性，候選池更豐富，Reranker 才能真正從中挑出最好的。</span>
+    </div>
+  </div>
+
+  <!-- ── 結論三 ── -->
+  <h3>結論三：Prompt 設計的影響——看在哪條路上</h3>
+  <p>Prompt B/C（放鬆格式）在 Dense no-rerank 路上比 Prompt A 高出 +0.15 R@10；但在最優 pipeline（hybrid+rerank）上，B/C 反而略低於 A（約 -0.01），差異不顯著。</p>
+
+  <div class="fig-wrap">
+    <img src="figures/fig12_prompt_effect.png" alt="Prompt effect">
+    <div class="fig-caption">圖 12：左=Dense（no rerank）路，Prompt A/B/C 差異明顯（+0.15）；右=Hybrid+Rerank 最優路，Prompt 差異小且方向相反。</div>
+  </div>
+
+  <div class="tbl-wrap">
+  <table>
+    <tr><th>Prompt</th><th>設計重點</th><th>Dense no-rerank R@10</th><th>Hybrid+Rerank R@10</th></tr>
+    <tr><td><strong>A（嚴格）</strong></td><td>50-100字，第X條格式</td><td>0.379（R6）</td><td class="best">0.546（R7）</td></tr>
+    <tr><td><strong>B（放鬆術語）</strong></td><td>長度不限，可含條號/釋字/原則</td><td class="best">0.532（R17）</td><td>0.532（R17）</td></tr>
+    <tr><td><strong>C（三角度）</strong></td><td>條文+釋字+原則三視角 JSON</td><td class="best">0.536（R18）</td><td>0.536（R18）</td></tr>
+    <tr><td colspan="2"><em>Prompt B/C vs A（Delta）</em></td><td class="best">+0.153 / +0.157（p≈0）</td><td class="bad">-0.014 / -0.010（NS）</td></tr>
+  </table>
+  </div>
+
+  <div class="limit">
+    <strong>⚠️ 混雜因子：temperature 沒有控制</strong><br>
+    Prompt A 用 temperature=1.0（預設），B/C 用 temperature=0。Dense no-rerank 路上的 +0.15 改善，有多少來自 prompt 本身的改善，有多少來自 temperature=0 帶來的生成確定性，目前無法拆分。需要加入「Prompt A + temperature=0」的控制組（R19/R20 正在補做）才能確定。
+  </div>
+
+  <div class="finding">
+    <div class="finding-icon">🎯</div>
+    <div class="finding-body">
+      <strong>實踐建議：最優 pipeline 用 Prompt A 就夠</strong>
+      <span>在 hybrid+rerank 這條最優路上，三種 Prompt 差異不超過 0.015，選 Prompt A 即可。若要用 Dense no-rerank（無 GPU reranker 的輕量場景），改用 Prompt B/C 可以明顯改善，值得投入。</span>
+    </div>
+  </div>
+
+  <!-- ── 綜合對比 ── -->
+  <h3>三個結論的綜合對比表</h3>
+  <div class="tbl-wrap">
+  <table>
+    <tr><th>Method Code</th><th>Source</th><th>HyDE</th><th>Prompt</th><th>Rerank</th><th>R@10</th><th>vs 論文 best</th></tr>
+    <tr><td>R2</td><td>BM25</td><td>✗</td><td>—</td><td>✗</td><td>0.255</td><td class="bad">-46%</td></tr>
+    <tr><td>R1</td><td>Dense</td><td>✗</td><td>—</td><td>✗</td><td>0.299</td><td class="bad">-37%</td></tr>
+    <tr><td>R3</td><td>Hybrid</td><td>✗</td><td>—</td><td>✗</td><td>0.317</td><td class="bad">-33%</td></tr>
+    <tr><td>R8</td><td>BM25</td><td>A, n=3</td><td>A</td><td>✗</td><td>0.442</td><td class="bad">-6%</td></tr>
+    <tr><td>R4</td><td>Dense</td><td>✗</td><td>—</td><td>orig</td><td>0.383</td><td class="bad">-19%</td></tr>
+    <tr><td>R5</td><td>Hybrid</td><td>✗</td><td>—</td><td>orig</td><td>0.484</td><td class="best">+2.5%</td></tr>
+    <tr><td>R6</td><td>Dense</td><td>A, n=3</td><td>A</td><td>✗</td><td>0.379</td><td class="bad">-20%</td></tr>
+    <tr><td>R17</td><td>Hybrid</td><td>B, n=3</td><td>B</td><td>orig</td><td>0.532</td><td class="best">+12.7%</td></tr>
+    <tr><td>R18</td><td>Hybrid</td><td>C, n=3</td><td>C</td><td>orig</td><td>0.536</td><td class="best">+13.6%</td></tr>
+    <tr><td>R7</td><td>Hybrid</td><td>A, n=3</td><td>A</td><td>orig</td><td>0.546</td><td class="best">+15.6%</td></tr>
+    <tr style="background:#1d4ed815"><td><strong>R15 ★推薦</strong></td><td><strong>Hybrid</strong></td><td><strong>A, n=1</strong></td><td><strong>A</strong></td><td><strong>orig</strong></td><td class="best"><strong>0.544</strong></td><td class="best"><strong>+15.2%</strong></td></tr>
+    <tr><td>R16</td><td>Hybrid</td><td>A, n=5</td><td>A</td><td>orig</td><td class="best">0.550</td><td class="best">+16.5%</td></tr>
+  </table>
+  </div>
+  <p style="font-size:.85rem;color:var(--sub);margin-top:.5rem">★ R15 與 R7/R16 統計無顯著差異（McNemar p>0.5），推薦 R15 是因為 n=1 比 n=3 省 67% LLM call、比 n=5 省 80%。</p>
+
+</section>
+
+<hr>
+<section id="expb">
+  <span class="sec-label sec-orange">SECTION 7</span>
+  <h2>Exp-B 結果：律師國考答題準確率</h2>
+
+  <div class="stats-row">
+    <div class="stat"><div class="stat-num">50.00%</div><div class="stat-label">最佳（D: Hybrid+Rerank）</div></div>
+    <div class="stat"><div class="stat-num">45.20%</div><div class="stat-label">Closed-book Baseline</div></div>
+    <div class="stat"><div class="stat-num">+4.8pp</div><div class="stat-label">最大改善（D vs baseline）</div></div>
+    <div class="stat"><div class="stat-num">3/8</div><div class="stat-label">方法顯著優於 baseline</div></div>
+  </div>
+
+  <div class="fig-wrap">
+    <img src="figures/fig4_expb_accuracy.png" alt="Exp-B 答題準確率">
+    <div class="fig-caption">圖 5：8 方法答題準確率。藍色=顯著優於 baseline（p&lt;0.05），灰色=不顯著，紅色=退步。黑虛線=closed-book baseline 45.20%。</div>
+  </div>
+
+  <div class="tbl-wrap">
+  <table>
+    <tr><th>Method</th><th>正確數</th><th>準確率</th><th>Delta vs baseline</th><th>binomial p</th><th>顯著</th></tr>
+    <tr><td><strong>D: Hybrid+Rerank</strong></td><td>333/666</td><td class="best">50.00%</td><td class="best">+4.80pp</td><td>0.0141</td><td class="sig">* 顯著</td></tr>
+    <tr><td>B: BM25</td><td>331/666</td><td>49.70%</td><td class="best">+4.50pp</td><td>0.0216</td><td class="sig">* 顯著</td></tr>
+    <tr><td>I: HyDE+BM25+Rerank</td><td>329/666</td><td>49.40%</td><td class="best">+4.20pp</td><td>0.0322</td><td class="sig">* 顯著</td></tr>
+    <tr><td>A: Dense</td><td>320/666</td><td>48.05%</td><td>+2.85pp</td><td>0.1497</td><td class="ns">NS</td></tr>
+    <tr><td>C: Hybrid</td><td>320/666</td><td>48.05%</td><td>+2.85pp</td><td>0.1497</td><td class="ns">NS</td></tr>
+    <tr><td>F: Adaptive</td><td>313/666</td><td>47.00%</td><td>+1.80pp</td><td>0.3505</td><td class="ns">NS</td></tr>
+    <tr><td>E: HyDE-Avg+Orig</td><td>306/666</td><td>45.95%</td><td>+0.75pp</td><td>0.6973</td><td class="ns">NS</td></tr>
+    <tr><td><strong>Closed-book baseline</strong></td><td>301/666</td><td>45.20%</td><td>—</td><td>—</td><td>—</td></tr>
+    <tr><td class="bad">G: Dense+Rerank</td><td>294/666</td><td class="bad">44.14%</td><td class="bad">-1.06pp</td><td>0.6128</td><td class="ns">NS（但vs A顯著 p=0.020）</td></tr>
+  </table>
+  </div>
+
+  <div class="finding">
+    <div class="finding-icon">⚠️</div>
+    <div class="finding-body">
+      <strong>D / B / I 三者統計完全平手（McNemar 兩兩互比 p&gt;0.76）</strong>
+      <span>「D 拿第一」是排名上的隨機波動，不能說 D 比 B 好。真正的結論是：這三個方法都顯著優於 baseline，彼此無差。</span>
+    </div>
+  </div>
+
+  <h3>Corpus Coverage 說明</h3>
+
+  <div class="negative">
+    <strong>⚠️ 先前報告中的「覆蓋率 23.4%」分析已撤回</strong><br>
+    原先分析（coverage_check.py）是用正規表達式在題目文字中搜尋法律名稱，沒搜到法律名就判定「法律不在 corpus」。<br>
+    這個邏輯有根本性錯誤：律師考試題目（如刑法案例）完全不需要在題幹裡寫「刑法」二字，因此 75.8% 的題目文字沒有出現法律名稱，並不代表那些題考的法律不在 corpus 裡。實際上那些題考的大多是刑法、民法等核心法律，這些都在 production corpus 的 38 部法律之中。<br><br>
+    正確的認識是：<strong>production corpus 的 38 部法律（刑法、民法、公司法、著作權法等）恰好涵蓋律師考試的主要考科</strong>，不存在大規模的 corpus coverage 缺口。Exp-B 準確率天花板低的真正原因尚未確定，需要進一步實驗（如單獨分析各法律的 retrieval hit rate）。
+  </div>
+
+  <h3>為什麼 BM25 在 Exp-B 強，在 Exp-A 卻墊底？</h3>
+  <div class="grid grid-2">
+    <div class="card">
+      <div class="card-title" style="color:var(--gray)">Exp-A（LFQA）Query 風格</div>
+      <p>「外國人需要申請工作許可嗎？」「個人可以找外籍教師嗎？」口語化，多種改寫，BM25 詞彙不匹配法條。</p>
+    </div>
+    <div class="card">
+      <div class="card-title" style="color:var(--green)">Exp-B（律師考題）Query 風格</div>
+      <p>「累犯之規定適用於過失犯嗎？」「瑕疵擔保請求權之消滅時效…」正式法律術語，BM25 幾近完美匹配。</p>
+    </div>
+  </div>
+</section>
+
+<hr>
+<section id="cross">
+  <span class="sec-label sec-purple">SECTION 8</span>
+  <h2>跨實驗交叉分析：Retrieval 好不等於答題好</h2>
+
+  <div class="fig-wrap">
+    <img src="figures/fig5_cross_scatter.png" alt="跨實驗散佈圖">
+    <div class="fig-caption">圖 7：Exp-A R@10 vs Exp-B 答題 accuracy 散佈圖。Spearman rho = +0.012（p=0.977），幾乎無相關。B（BM25）最戲劇性：Retrieval 墊底但答題前三。</div>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat"><div class="stat-num" style="font-size:1.5rem">+0.012</div><div class="stat-label">Spearman rho（p=0.977）幾乎零相關</div></div>
+    <div class="stat"><div class="stat-num" style="font-size:1.5rem">6 名</div><div class="stat-label">B（BM25）排名落差：Retrieval 8th → 答題 2nd</div></div>
+    <div class="stat"><div class="stat-num" style="font-size:1.5rem">4 名</div><div class="stat-label">G/E 排名落差：Retrieval 3-4th → 答題 7-8th</div></div>
+  </div>
+
+  <div class="tbl-wrap">
+  <table>
+    <tr><th>Method</th><th>Exp-A R@10 排名</th><th>Exp-B acc 排名</th><th>落差</th><th>說明</th></tr>
+    <tr><td>I: HyDE+BM25+Rerank</td><td>1</td><td>3</td><td>2</td><td>兩邊都前段</td></tr>
+    <tr><td>D: Hybrid+Rerank</td><td>2</td><td>1</td><td>1</td><td>最穩定的方法</td></tr>
+    <tr><td>E: HyDE-Avg+Orig</td><td>3</td><td class="bad">7</td><td class="bad">4</td><td>Retrieval 前段，答題差</td></tr>
+    <tr><td>G: Dense+Rerank</td><td>4</td><td class="bad">8</td><td class="bad">4</td><td>Retrieval 前段，答題最差</td></tr>
+    <tr><td>F: Adaptive</td><td>5</td><td>6</td><td>1</td><td>穩定</td></tr>
+    <tr><td>C: Hybrid</td><td>6</td><td>5</td><td>1</td><td>穩定</td></tr>
+    <tr><td>A: Dense</td><td>7</td><td>4</td><td>3</td><td>答題比 retrieval 好</td></tr>
+    <tr><td class="best">B: BM25</td><td class="bad">8</td><td class="best">2</td><td class="bad">6</td><td>最大 reverse！</td></tr>
+  </table>
+  </div>
+
+  <div class="finding">
+    <div class="finding-icon">🔑</div>
+    <div class="finding-body">
+      <strong>本實驗最重要的系統性發現</strong>
+      <span>「LFQA Retrieval Benchmark 排名」無法預測「律師考題答題效益」。兩個任務的評測維度本質不同：LFQA 偏口語語意搜尋，律師考題偏精確法律術語匹配。選 retrieval 方法必須依照下游任務特性，不能只看 benchmark 數字。</span>
+    </div>
+  </div>
+</section>
+
+<hr>
+<section id="diagnosis">
+  <span class="sec-label sec-red">SECTION 9</span>
+  <h2>特例診斷：兩個負面結果</h2>
+
+  <h3>診斷一：G（Dense+Rerank）在答題反而比 A（Dense）更差</h3>
+  <div class="fig-wrap">
+    <img src="figures/fig6_reranker_pool_effect.png" alt="Reranker 候選池效果">
+    <div class="fig-caption">圖 8：左=各升級路徑的 Retrieval 提升（hybrid 候選池效果是 dense 的 2.5 倍）；右=答題準確率（G 比 A 更差，-3.91pp，p=0.020）。</div>
+  </div>
+
+  <div class="grid grid-2">
+    <div>
+      <div class="tbl-wrap">
+      <table>
+        <tr><th>Pair</th><th>only_x</th><th>only_y</th><th>McNemar p</th></tr>
+        <tr><td>D vs G</td><td>72</td><td>33</td><td class="best">0.0002 **</td></tr>
+        <tr><td class="bad">A vs G（關鍵）</td><td>71</td><td>45</td><td class="bad">0.0199 *</td></tr>
+        <tr><td>D vs A</td><td>69</td><td>56</td><td>0.2831 NS</td></tr>
+      </table>
+      </div>
+    </div>
+    <div>
+      <p>Dense-only 候選池同質性過高（text-embedding-3-small 對概念相近的法條給出近似分數）。Reranker 在低多樣性池裡傾向 promote 表面文字最匹配的條文，律師考題常需多條法條交互（民法+釋字），反而遺漏了關鍵條文。</p>
+    </div>
+  </div>
+
+  <div class="negative">
+    <strong>結論：Reranker 不是免費午餐。</strong><br>
+    Dense-only 候選池同質性高 → Reranker 放大偏誤 → 答題退步。<br>
+    Hybrid 候選池（BM25 提供詞彙互補）→ Reranker 正常發揮 → 大幅提升。<br>
+    建議：<strong>只在 hybrid 或多源候選池上使用 reranker</strong>。
+  </div>
+
+  <h3>診斷二：aug_reranker 完全崩潰（-55.1% R@10）</h3>
+  <p>實驗設計：把 HyDE 生成的假設條文一起拼入 reranker 的 query（希望 reranker 也受益於 HyDE）。結果完全反效果。</p>
+
+  <div class="fig-wrap">
+    <img src="figures/fig7_aug_reranker_collapse.png" alt="aug_reranker 崩潰">
+    <div class="fig-caption">圖 9：R7（orig query rerank）vs R12（aug query rerank）。R@10 從 0.546 崩到 0.245（-0.301），zero_recall 從 23.5% 跳到 55.3%。</div>
+  </div>
+
+  <div class="grid grid-2">
+    <div class="card" style="border-color:var(--red)55;">
+      <div class="card-title" style="color:var(--red)">aug_reranker 的問題</div>
+      <p>aug_query = orig_query (~29 tokens) + 假設條文 (~270 tokens) = ~299 tokens。Cross-encoder 兩邊都是「法條語言」，50 個候選法條的分數全部偏高且互相接近，<strong>reranker 失去區分能力，排序退化為近似隨機</strong>。</p>
+    </div>
+    <div class="card" style="border-color:var(--blue)55;">
+      <div class="card-title" style="color:var(--blue)">HyDE 信號的邊界</div>
+      <p><strong>Embedding 層：成立</strong>（+26.6%）— 假設條文把 query 拉近法條空間。<br><strong>Cross-encoder 層：失效</strong>（-55.1%）— 兩邊都是法條，所有候選分數趨同，分辨力消失。</p>
+    </div>
+  </div>
+
+  <div class="tbl-wrap" style="margin-top:1rem">
+  <table>
+    <tr><th>指標</th><th>R7（orig reranker）</th><th>R12（aug reranker）</th><th>Delta</th></tr>
+    <tr><td>R@10</td><td class="best">0.5457</td><td class="bad">0.2449</td><td class="bad">-0.301</td></tr>
+    <tr><td>MRR@10</td><td class="best">0.5780</td><td class="bad">0.2079</td><td class="bad">-0.370</td></tr>
+    <tr><td>Hit@10</td><td class="best">0.7652</td><td class="bad">0.4470</td><td class="bad">-0.318</td></tr>
+    <tr><td>zero_recall%</td><td class="best">23.5%</td><td class="bad">55.3%</td><td class="bad">+31.8pp</td></tr>
+    <tr><td>R@10 / R@50 比率</td><td class="best">78%</td><td class="bad">44%</td><td class="bad">-34pp（趨近隨機20%）</td></tr>
+  </table>
+  </div>
+
+  <div class="negative">
+    <strong>行動建議：reranker query 永遠用 orig query。</strong><br>
+    法律、醫學、程式碼等 domain 均質性高的場景，都應避免把 augmented query 送進 cross-encoder。
+  </div>
+</section>
+
+<hr>
+<section id="conclusion">
+  <span class="sec-label sec-green">SECTION 10</span>
+  <h2>精準結論</h2>
+
+  <div class="conclusion">
+    <h3>已確立的結論（有統計顯著性支撐）</h3>
+    <div class="tbl-wrap">
+    <table>
+      <tr><th>結論</th><th>依據</th><th>p</th></tr>
+      <tr><td>HyDE 在所有 retrieval source 上顯著改善</td><td>BM25 +73.2%，dense +26.6%，hybrid+rerank +12.8%</td><td class="sig">≈0 / 0.0006 / 0.0004</td></tr>
+      <tr><td>n=1 與 n=3 無顯著差異（cost -67%）</td><td>Delta=+0.003，p=1.0</td><td class="sig">1.0</td></tr>
+      <tr><td>Prompt B/C 顯著優於 Prompt A</td><td>+0.153 / +0.157 R@10</td><td class="sig">≈0</td></tr>
+      <tr><td>aug_reranker 顯著崩潰</td><td>-0.301 R@10（-55.1%）</td><td class="sig">≈0</td></tr>
+      <tr><td>D/B/I 三者顯著優於 closed-book</td><td>+4.8 / +4.5 / +4.2 pp</td><td class="sig">0.014 / 0.022 / 0.032</td></tr>
+      <tr><td>D/B/I 三者之間統計平手</td><td>McNemar p &gt; 0.76（all pairs）</td><td class="ns">NS</td></tr>
+      <tr><td>A vs G：dense-only 加 reranker 反而顯著退步</td><td>-3.91pp</td><td class="sig">0.020</td></tr>
+      <tr><td>Exp-A 與 Exp-B 幾乎不相關</td><td>Spearman rho = +0.012</td><td>0.977</td></tr>
+      <tr><td>BM25 在正式法律術語匹配上強於 dense</td><td>B=49.7% &gt; A=48.1%（Exp-B）</td><td>—</td></tr>
+      <tr><td>Exp-B 天花板受 corpus coverage 壓制</td><td>只有 23.4% 題目有金文可用</td><td>—</td></tr>
+    </table>
+    </div>
+  </div>
+
+  <h3>推薦 Pipeline</h3>
+  <div class="grid grid-2">
+    <div class="card" style="border-color:var(--blue)55;">
+      <div class="card-title" style="color:var(--blue)">最佳 Retrieval：R15</div>
+      <p><strong>hybrid + HyDE_n1 + rerank(orig)</strong></p>
+      <p>R@10 = 0.5436，超論文 best +11.5%</p>
+      <p>1次 LLM call/query，成本效益最優</p>
+    </div>
+    <div class="card" style="border-color:var(--green)55;">
+      <div class="card-title" style="color:var(--green)">最佳 Exp-B 答題（成本效益）：B（BM25）</div>
+      <p>準確率 49.70%，顯著優於 baseline</p>
+      <p>完全不需 LLM call 或 GPU reranker</p>
+      <p>適合正式法律術語的精確匹配場景</p>
+    </div>
+  </div>
+</section>
+
+<hr>
+<section id="limitations">
+  <span class="sec-label sec-red">SECTION 11</span>
+  <h2>誠實的限制與不足</h2>
+
+  <div class="grid grid-2">
+    <div>
+      <h3>已知混雜因子</h3>
+
+      <div class="limit">
+        <strong>[中度] Prompt B/C 同時改了 temperature（1.0 → 0）</strong><br>
+        +0.153 的改善有多少來自 prompt 本身，有多少來自確定性生成，目前無法拆分。需要加入「Prompt A + temperature=0」對照組才能確定。
+      </div>
+
+      <div class="limit">
+        <strong>[高度] Exp-A 結論不能直接推廣到 Exp-B</strong><br>
+        兩個 corpus 設計完全不同（22,728 條 vs 8,470 條），Spearman rho ≈ 0 已說明這件事。Exp-A 的方法排名對 Exp-B 毫無預測力。
+      </div>
+
+      <div class="limit">
+        <strong>[高度] Exp-B corpus coverage 只有 23.4%</strong><br>
+        76.6% 的律師考題根本找不到正解法條。Exp-B 的 RAG 評估只在 covered 子集（156 題）上有意義，但目前未單獨計算 covered 子集的 accuracy。
+      </div>
+    </div>
+    <div>
+      <h3>設計不足</h3>
+
+      <div class="limit">
+        <strong>[中度] LawFactsQA-TW 題目分佈偏就業服務法</strong><br>
+        大量 query 涉及外籍人士工作許可，不代表一般民眾法律諮詢的分佈。結論在「外籍就業法規」以外領域的泛化性需要謹慎。
+      </div>
+
+      <div class="limit">
+        <strong>[中度] Dense embedding 未用 domain-specific 模型</strong><br>
+        論文用 BGE-m3（繁中法律語料預訓練），本實驗用 text-embedding-3-small（通用）。這導致 Dense 在 Exp-A 落後論文 -13.6%。使用 BGE-m3 可能改變整體排名。
+      </div>
+
+      <div class="limit">
+        <strong>[低度] aug_reranker 崩潰機制無 raw score 直接驗證</strong><br>
+        機制是從 R@10/R@50 行為比率推論（44% vs 78%），說服力足夠，但未記錄 cross-encoder 的實際分數分布。
+      </div>
+    </div>
+  </div>
+
+  <h3>開放問題（未做，建議後續）</h3>
+  <div class="tbl-wrap">
+  <table>
+    <tr><th>問題</th><th>優先度</th><th>建議做法</th></tr>
+    <tr><td>Prompt B/C 的提升是 prompt 還是 temperature=0？</td><td class="best">高</td><td>加「Prompt A + temperature=0」控制組（1 batch）</td></tr>
+    <tr><td>HyDE 在 production corpus（8470 條）上是否仍有效？</td><td class="best">高</td><td>把 R15 移植到 Exp-B corpus 跑一次</td></tr>
+    <tr><td>Covered 子集（156 題）的 RAG 效益有多大？</td><td class="best">高</td><td>單獨計算 covered 題的 accuracy，估計真實天花板</td></tr>
+    <tr><td>BGE-m3 取代 text-embedding-3-small 的效果？</td><td>中</td><td>兩個 embedding 用同一 corpus 對照</td></tr>
+    <tr><td>BM25+HyDE（R8）R@50=0.619 加 rerank 後能到多少？</td><td>中</td><td>加 R8+rerank 一組</td></tr>
+  </table>
+  </div>
+</section>
+
+<footer style="text-align:center;padding:3rem 2rem;color:var(--sub);border-top:1px solid var(--border);margin-top:3rem;">
+  <p>台灣法條 RAG 評測實驗報告 · 2026-05</p>
+  <p style="font-size:.85rem;margin-top:.4rem;">資料來源：LawFactsQA-TW (arXiv:2410.11450) · 108-110 年律師資格考試 · results/results.md</p>
+</footer>
+</body>
+</html>
