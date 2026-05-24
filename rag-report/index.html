@@ -104,7 +104,7 @@ tr:hover td{background:#F8FAFC;}
 .finding{display:flex;gap:1rem;align-items:flex-start;background:#F8FAFC;border:1px solid var(--border);border-radius:10px;padding:1.2rem;margin:.8rem 0;}
 .finding-icon{font-size:1.4rem;line-height:1;flex-shrink:0;}
 .finding-body strong{display:block;margin-bottom:.3rem;}
-.finding-body span{font-size:.9rem;color:#D1D5DB;}
+.finding-body span{font-size:.9rem;color:#1E293B;}
 
 /* warn / limit */
 .limit{background:#FFF7ED;border-left:3px solid var(--orange);padding:.8rem 1.2rem;border-radius:4px;margin:.6rem 0;font-size:.9rem;}
@@ -626,39 +626,65 @@ hr{border:none;border-top:1px solid #E2E8F0;margin:3rem 0;}
   </div>
 
   <!-- ── 結論三 ── -->
-  <h3>結論三：Prompt 設計的影響——看在哪條路上</h3>
-  <p>Prompt B/C（放鬆格式）在 Dense no-rerank 路上比 Prompt A 高出 +0.15 R@10；但在最優 pipeline（hybrid+rerank）上，B/C 反而略低於 A（約 -0.01），差異不顯著。</p>
+  <h3>結論三：Prompt 格式對效果幾乎無影響（最優 pipeline 下）</h3>
+  <p>控制住 pipeline（hybrid + HyDE + rerank）後，Prompt A/B/C 三者 R@10 差異不超過 0.015，均不顯著。
+     舊 ablation 報告的 +0.153 是<strong>混淆比較假象</strong>，已被 R19/R20 控制組推翻。</p>
+
+  <div class="finding" style="border-color:#ef444455;background:#ef444410">
+    <div class="finding-icon">⚠️</div>
+    <div class="finding-body">
+      <strong>舊結論（錯誤）：Prompt B/C 比 A 好 +0.153</strong><br>
+      原 ablation 比較的是 R6（dense + no rerank + Prompt A）vs R17（hybrid + rerank + Prompt B），
+      同時改了 retrieval source、reranker、prompt 三個因子。+0.153 完全來自 pipeline 升級，與 prompt 本身無關。
+    </div>
+  </div>
 
   <div class="fig-wrap">
-    <img src="figures/fig12_prompt_effect.png" alt="Prompt effect">
-    <div class="fig-caption">圖 12：左=Dense（no rerank）路，Prompt A/B/C 差異明顯（+0.15）；右=Hybrid+Rerank 最優路，Prompt 差異小且方向相反。</div>
+    <img src="figures/fig12_prompt_effect.png" alt="Prompt effect corrected">
+    <div class="fig-caption">圖 12：Prompt 效果（正確版）。控制住 pipeline = hybrid+HyDE+rerank 後，B=-0.014、C=-0.009，均不顯著（NS）。Temperature 效果可忽略（R20 vs R7 Δ=+0.002）。</div>
   </div>
 
   <div class="tbl-wrap">
   <table>
-    <tr><th>Prompt</th><th>設計重點</th><th>Dense no-rerank R@10</th><th>Hybrid+Rerank R@10</th></tr>
-    <tr><td><strong>A（嚴格）</strong></td><td>50-100字，第X條格式</td><td>0.379（R6）</td><td class="best">0.546（R7）</td></tr>
-    <tr><td><strong>B（放鬆術語）</strong></td><td>長度不限，可含條號/釋字/原則</td><td class="best">0.532（R17）</td><td>0.532（R17）</td></tr>
-    <tr><td><strong>C（三角度）</strong></td><td>條文+釋字+原則三視角 JSON</td><td class="best">0.536（R18）</td><td>0.536（R18）</td></tr>
-    <tr><td colspan="2"><em>Prompt B/C vs A（Delta）</em></td><td class="best">+0.153 / +0.157（p≈0）</td><td class="bad">-0.014 / -0.010（NS）</td></tr>
+    <tr><th>Method</th><th>Prompt</th><th>Temperature</th><th>Pipeline</th><th>R@10</th><th>vs R7 (Prompt A)</th></tr>
+    <tr style="background:#3b82f620"><td>R7</td><td><strong>A（50-100字，嚴格格式）</strong></td><td>0.0</td><td>hybrid+rerank</td><td class="best">0.5457</td><td>—（基準）</td></tr>
+    <tr><td>R20</td><td>A（同上，控制組）</td><td>1.0</td><td>hybrid+rerank</td><td>0.5478</td><td class="ns">+0.002（NS，temperature 可忽略）</td></tr>
+    <tr><td>R17</td><td>B（放鬆字數，可含條號）</td><td>0.0</td><td>hybrid+rerank</td><td>0.5319</td><td class="bad">-0.014（NS）</td></tr>
+    <tr><td>R18</td><td>C（三視角 JSON）</td><td>0.0</td><td>hybrid+rerank</td><td>0.5363</td><td class="bad">-0.009（NS）</td></tr>
   </table>
-  </div>
-
-  <div class="limit">
-    <strong>⚠️ 混雜因子：temperature 沒有控制</strong><br>
-    Prompt A 用 temperature=1.0（預設），B/C 用 temperature=0。Dense no-rerank 路上的 +0.15 改善，有多少來自 prompt 本身的改善，有多少來自 temperature=0 帶來的生成確定性，目前無法拆分。需要加入「Prompt A + temperature=0」的控制組（R19/R20 正在補做）才能確定。
   </div>
 
   <div class="finding">
     <div class="finding-icon">🎯</div>
     <div class="finding-body">
-      <strong>實踐建議：最優 pipeline 用 Prompt A 就夠</strong>
-      <span>在 hybrid+rerank 這條最優路上，三種 Prompt 差異不超過 0.015，選 Prompt A 即可。若要用 Dense no-rerank（無 GPU reranker 的輕量場景），改用 Prompt B/C 可以明顯改善，值得投入。</span>
+      <strong>結論：最佳 prompt = A（嚴格 50-100 字格式）</strong><br>
+      在最優 pipeline 下，三種 prompt 差異不顯著。但 Prompt A 略優，且生成字數少，HyDE embedding 更集中，成本最低。
+      B/C 的較長輸出在 embedding averaging 時引入更多雜訊，稀釋關鍵法律術語的信號。
     </div>
   </div>
 
+  <!-- ── 新增：結論四 ── -->
+  <h3>結論四：BM25+HyDE 加 Reranker 效果顯著（R21）</h3>
+  <p>R8（BM25+HyDE，no rerank）的 R@50=0.619 遠高於 R@10=0.442，說明 pool 裡有大量好答案卡在前 10 之外。
+     加入 reranker 後（R21），R@10 跳到 0.538（+21.8%），Hit@10=0.773 甚至超越 hybrid+HyDE 系列。</p>
+
+  <div class="fig-wrap">
+    <img src="figures/fig13_bm25_rerank_effect.png" alt="R21 BM25+HyDE+rerank">
+    <div class="fig-caption">圖 13：R8（BM25+HyDE，無 rerank）→ R21（加 rerank）。R@10 提升 +21.8%，Hit@10=0.773 超越 hybrid+HyDE+rerank（R7=0.765）。BM25+HyDE pool 多樣性高，reranker 能從中精篩出更多命中。</div>
+  </div>
+
+  <!-- ── 新增：結論五 ── -->
+  <h3>結論五：HyDE 在 Production Corpus 仍有效（Exp-C）</h3>
+  <p>Exp-A 在 LawFactsQA-TW（22,728 chunks）上的結論，是否能推廣到 production corpus（public.laws, 8470 條）？
+     Exp-C 用 synthetic QA（38 部法律各抽 5 條）驗證：HyDE 方向正確，但受 ceiling effect 影響幅度縮小。</p>
+
+  <div class="fig-wrap">
+    <img src="figures/fig14_expc_production.png" alt="Exp-C production corpus">
+    <div class="fig-caption">圖 14：Exp-C production corpus 驗證（190 queries, synthetic QA）。RC15（HyDE_n1）vs RC5（no HyDE）：R@10 +1.6%，miss 從 6 減到 3。Ceiling effect：baseline 已 97%，說明方向成立，非 HyDE 失效。</div>
+  </div>
+
   <!-- ── 綜合對比 ── -->
-  <h3>三個結論的綜合對比表</h3>
+  <h3>最終全方法對比表</h3>
   <div class="tbl-wrap">
   <table>
     <tr><th>Method Code</th><th>Source</th><th>HyDE</th><th>Prompt</th><th>Rerank</th><th>R@10</th><th>vs 論文 best</th></tr>
