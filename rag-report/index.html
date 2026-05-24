@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>台灣法條 RAG 評測實驗報告</title>
 <style>
-:root{--blue:#2563EB;--green:#16A34A;--orange:#EA580C;--red:#DC2626;--gray:#6B7280;--yellow:#CA8A04;--teal:#0D9488;--indigo:#4F46E5;--dark:#1E293B;--card:#F8FAFC;--border:#E2E8F0;--text:#1E293B;--sub:#64748B;}
+:root{--blue:#2563EB;--green:#16A34A;--orange:#EA580C;--red:#DC2626;--gray:#6B7280;--yellow:#CA8A04;--teal:#0D9488;--indigo:#4F46E5;--dark:#1E293B;--card:#F8FAFC;--border:#E2E8F0;--text:#1E293B;--sub:#374151;}
 *{box-sizing:border-box;margin:0;padding:0;}
 body{background:#FFFFFF;color:var(--text);font-family:'Helvetica Neue',Arial,'PingFang TC','Microsoft JhengHei',sans-serif;font-size:16px;line-height:1.7;}
 a{color:var(--blue);text-decoration:none;}
@@ -19,7 +19,7 @@ nav a:hover{color:var(--text);}
 /* hero */
 .hero{text-align:center;padding:5rem 2rem 3rem;background:linear-gradient(160deg,#EFF6FF 0%,#DBEAFE 100%);}
 .hero h1{font-size:clamp(1.8rem,4vw,3rem);font-weight:800;background:linear-gradient(90deg,var(--blue),var(--teal));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:.8rem;}
-.hero p{color:#475569;max-width:680px;margin:0 auto 2rem;}
+.hero p{color:#1E293B;max-width:680px;margin:0 auto 2rem;}
 .badge-row{display:flex;gap:.8rem;justify-content:center;flex-wrap:wrap;}
 .badge{padding:.3rem .9rem;border-radius:999px;font-size:13px;font-weight:600;}
 .badge-blue{background:#DBEAFE;border:1px solid #93C5FD;color:#1D4ED8;}
@@ -66,7 +66,7 @@ code{font-family:'JetBrains Mono','Fira Code',monospace;color:#1E293B;}
 /* table */
 .tbl-wrap{overflow-x:auto;margin:1rem 0;}
 table{width:100%;border-collapse:collapse;font-size:.9rem;}
-th{background:#F1F5F9;color:#475569;padding:.6rem 1rem;text-align:left;border-bottom:2px solid var(--border);}
+th{background:#F1F5F9;color:#1E293B;padding:.6rem 1rem;text-align:left;border-bottom:2px solid var(--border);}
 td{padding:.55rem 1rem;border-bottom:1px solid var(--border)22;}
 tr:hover td{background:#F8FAFC;}
 .best{color:var(--green);font-weight:700;}
@@ -98,7 +98,7 @@ tr:hover td{background:#F8FAFC;}
 /* figure */
 .fig-wrap{background:#FFFFFF;border:1px solid var(--border);border-radius:12px;overflow:hidden;margin:1.5rem 0;box-shadow:0 1px 4px #0000000d;}
 .fig-wrap img{width:100%;display:block;}
-.fig-caption{padding:.8rem 1.2rem;font-size:.85rem;color:#475569;border-top:1px solid var(--border);background:#F8FAFC;}
+.fig-caption{padding:.8rem 1.2rem;font-size:.85rem;color:#1E293B;border-top:1px solid var(--border);background:#F8FAFC;}
 
 /* finding */
 .finding{display:flex;gap:1rem;align-items:flex-start;background:#F8FAFC;border:1px solid var(--border);border-radius:10px;padding:1.2rem;margin:.8rem 0;}
@@ -677,7 +677,7 @@ hr{border:none;border-top:1px solid #E2E8F0;margin:3rem 0;}
     <tr><td>R16</td><td>Hybrid</td><td>A, n=5</td><td>A</td><td>orig</td><td class="best">0.550</td><td class="best">+16.5%</td></tr>
   </table>
   </div>
-  <p style="font-size:.85rem;color:var(--sub);margin-top:.5rem">★ R15 與 R7/R16 統計無顯著差異（McNemar p>0.5），推薦 R15 是因為 n=1 比 n=3 省 67% LLM call、比 n=5 省 80%。</p>
+  <p style="font-size:.85rem;color:#374151;margin-top:.5rem">★ R15 與 R7/R16 統計無顯著差異（McNemar p>0.5），推薦 R15 是因為 n=1 比 n=3 省 67% LLM call、比 n=5 省 80%。</p>
 
 </section>
 
@@ -719,15 +719,6 @@ hr{border:none;border-top:1px solid #E2E8F0;margin:3rem 0;}
       <strong>D / B / I 三者統計完全平手（McNemar 兩兩互比 p&gt;0.76）</strong>
       <span>「D 拿第一」是排名上的隨機波動，不能說 D 比 B 好。真正的結論是：這三個方法都顯著優於 baseline，彼此無差。</span>
     </div>
-  </div>
-
-  <h3>Corpus Coverage 說明</h3>
-
-  <div class="negative">
-    <strong>⚠️ 先前報告中的「覆蓋率 23.4%」分析已撤回</strong><br>
-    原先分析（coverage_check.py）是用正規表達式在題目文字中搜尋法律名稱，沒搜到法律名就判定「法律不在 corpus」。<br>
-    這個邏輯有根本性錯誤：律師考試題目（如刑法案例）完全不需要在題幹裡寫「刑法」二字，因此 75.8% 的題目文字沒有出現法律名稱，並不代表那些題考的法律不在 corpus 裡。實際上那些題考的大多是刑法、民法等核心法律，這些都在 production corpus 的 38 部法律之中。<br><br>
-    正確的認識是：<strong>production corpus 的 38 部法律（刑法、民法、公司法、著作權法等）恰好涵蓋律師考試的主要考科</strong>，不存在大規模的 corpus coverage 缺口。Exp-B 準確率天花板低的真正原因尚未確定，需要進一步實驗（如單獨分析各法律的 retrieval hit rate）。
   </div>
 
   <h3>為什麼 BM25 在 Exp-B 強，在 Exp-A 卻墊底？</h3>
@@ -910,11 +901,6 @@ hr{border:none;border-top:1px solid #E2E8F0;margin:3rem 0;}
       <div class="limit">
         <strong>[高度] Exp-A 結論不能直接推廣到 Exp-B</strong><br>
         兩個 corpus 設計完全不同（22,728 條 vs 8,470 條），Spearman rho ≈ 0 已說明這件事。Exp-A 的方法排名對 Exp-B 毫無預測力。
-      </div>
-
-      <div class="limit">
-        <strong>[中度] Exp-B 準確率天花板的真正原因尚未確定</strong><br>
-        先前報告中「76.6% 題目法律不在 corpus」的說法已撤回（方法論錯誤：以題幹是否出現法律名作為 coverage 指標）。Production corpus 的 38 部法律涵蓋律師考試主要考科。真正的瓶頸可能是多法條推理、題目難度或 retrieval precision 不足，需要進一步實驗驗證。
       </div>
     </div>
     <div>
